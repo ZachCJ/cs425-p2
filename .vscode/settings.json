@@ -2,5 +2,6 @@
     "files.associations": {
         "*.rmd": "markdown",
         "lab.h": "c"
-    }
+    },
+    "github.copilot.chat.copilotDebugCommand.enabled": false
 }

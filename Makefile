@@ -1,5 +1,10 @@
 SHELL := /bin/bash
 APP_NAME ?= myapp
+LEAK_SESSION ?= me
+LEAK_PORT ?= 4250
+LEAK_RELAY ?= 127.0.0.1
+LEAK_INPUT ?= in.bin
+LEAK_OUTPUT ?= out.bin
 # Default build type (debug, release, test)
 BUILD ?= test
 
@@ -107,7 +112,15 @@ _all-text: test debug-test
 
 leak:
 	@if [[ -e ./build/debug/$(APP_NAME)_d ]]; then \
-		ASAN_OPTIONS="detect_leaks=1" ./build/debug/$(APP_NAME)_d; \
+		ASAN_OPTIONS="detect_leaks=1" ./build/debug/$(APP_NAME)_d recv -s $(LEAK_SESSION) -p $(LEAK_PORT) $(LEAK_RELAY) $(LEAK_OUTPUT) & \
+		receiver_pid=$$!; \
+		sleep 1; \
+		ASAN_OPTIONS="detect_leaks=1" ./build/debug/$(APP_NAME)_d send -s $(LEAK_SESSION) -p $(LEAK_PORT) $(LEAK_RELAY) $(LEAK_INPUT); \
+		sender_status=$$?; \
+		wait $$receiver_pid; \
+		receiver_status=$$?; \
+		if [[ $$sender_status -ne 0 ]]; then exit $$sender_status; fi; \
+		exit $$receiver_status; \
 	else \
 		echo "Build the debug target first by running 'make debug'."; \
 		exit 1; \
@@ -153,7 +166,7 @@ help:
 	@echo "  test        - Build the unit tests"
 	@echo "  check       - Run tests and check results"
 	@echo "  report      - Generate HTML and TXT coverage report after running tests"
-	@echo "  leak        - Check for memory leaks in executable debug mode"
+	@echo "  leak        - Run send and recv concurrently with ASan leak detection"
 	@echo "  leak-test   - Check for memory leaks in unit tests debug mode"
 	@echo "  clean       - Remove build artifacts"
 	@echo "  print       - Print build variables for MakeFile debugging"
